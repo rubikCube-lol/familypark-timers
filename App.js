@@ -28,19 +28,25 @@ export default function App() {
     },
   };
 
-  return (
-    <NavigationContainer linking={linking}>
-      <StatusBar style="light" />
-      <Stack.Navigator
-        initialRouteName="Home"
-        screenOptions={{ headerShown: false }}
-      >
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="OperatorLogin" component={OperatorLoginScreen} />
-        <Stack.Screen name="Zones" component={ZonesScreen} />
-        <Stack.Screen name="OperatorPanel" component={OperatorPanelScreen} />
-        <Stack.Screen name="TvScreen" component={TvScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+  const isWebTV =
+    typeof window !== "undefined" &&
+    window.location.hash.startsWith("#/tv");
+
+  if (isWebTV) {
+    return (
+      <NavigationContainer linking={linking}>
+        <StatusBar style="light" />
+        <Stack.Navigator
+          initialRouteName="Home"
+          screenOptions={{ headerShown: false }}
+        >
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="OperatorLogin" component={OperatorLoginScreen} />
+          <Stack.Screen name="Zones" component={ZonesScreen} />
+          <Stack.Screen name="OperatorPanel" component={OperatorPanelScreen} />
+          <Stack.Screen name="TvScreen" component={TvScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
 }
