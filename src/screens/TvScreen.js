@@ -40,14 +40,41 @@ export default function TvScreen({ route }) {
   let zoneCode = route?.params?.zoneCode;
   let localId = route?.params?.localId;
 
-  // Detectar desde URL (web)
+  // -----------------------------
+  // DETECTAR PARAMS DESDE WEB (Vercel / Hash / Query)
+  // -----------------------------
   if (typeof window !== "undefined" && (!zoneCode || !localId)) {
-    const pathParts = window.location.pathname.split("/");
+    const { hash, pathname } = window.location;
+
+    // 1️⃣ Formato: /pantalla/TRAMP/2
+    const pathParts = pathname.split("/");
     if (pathParts[1] === "pantalla" && pathParts[2] && pathParts[3]) {
       zoneCode = pathParts[2].toUpperCase();
       localId = Number(pathParts[3]);
     }
+
+    // 2️⃣ Formato hash: #/tv/TRAMP/2
+    if (hash.startsWith("#/tv/")) {
+      const parts = hash.replace("#/tv/", "").split("/");
+      if (parts[0] && parts[1]) {
+        zoneCode = parts[0].toUpperCase();
+        localId = Number(parts[1]);
+      }
+    }
+
+    // 3️⃣ Formato query: #/tv?zoneCode=TRAMP&localId=1
+    if (hash.includes("?")) {
+      const query = new URLSearchParams(hash.split("?")[1]);
+      const z = query.get("zoneCode");
+      const l = query.get("localId");
+
+      if (z && l) {
+        zoneCode = z.toUpperCase();
+        localId = Number(l);
+      }
+    }
   }
+
 
   // Detectar desde deep link (Expo)
   const url = Linking.useURL();
