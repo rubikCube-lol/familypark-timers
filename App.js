@@ -1,20 +1,46 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import HomeScreen from './src/screens/HomeScreen';
+import OperatorLoginScreen from './src/screens/OperatorLoginScreen';
+import ZonesScreen from './src/screens/ZonesScreen';
+import OperatorPanelScreen from './src/screens/OperatorPanelScreen';
+import TvScreen from './src/screens/TvScreen';
+import * as Linking from 'expo-linking';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
+
+  const linking = {
+    prefixes: ['http://localhost:8081', 'exp://*'],
+    config: {
+      screens: {
+        Home: '',
+        OperatorLogin: 'operador',
+        Zones: 'zonas',
+        OperatorPanel: 'panel',
+        // ❌ Eliminado FinishedSessions porque ya no existe
+        // TvScreen opcional dependiendo si lo usas
+        TvScreen: "pantalla/:zoneId/:localId",
+      },
+    },
+  };
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <NavigationContainer linking={linking}>
+      <StatusBar style="light" />
+      <Stack.Navigator
+        initialRouteName="Home"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="OperatorLogin" component={OperatorLoginScreen} />
+        <Stack.Screen name="Zones" component={ZonesScreen} />
+        <Stack.Screen name="OperatorPanel" component={OperatorPanelScreen} />
+        <Stack.Screen name="TvScreen" component={TvScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
