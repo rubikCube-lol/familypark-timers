@@ -102,7 +102,7 @@ export default function TvScreen() {
 
   return (
     <Image
-      source={require("../../assets/zones/autos.png")} // 👈 tu imagen
+      source={require("../../assets/zones/bg-autos.png")} // 👈 tu imagen
       style={styles.bg}
     >
       <View style={styles.overlay}>
