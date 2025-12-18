@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  Image,
+  Animated,
+} from "react-native";
 import { supabase } from "../../supabase/supabaseClient";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 export default function TvScreen() {
   const [zoneCode, setZoneCode] = useState(null);
@@ -10,26 +17,23 @@ export default function TvScreen() {
   const [sessions, setSessions] = useState([]);
   const [now, setNow] = useState(Date.now());
 
-  // ⏱ reloj interno
+  /* ⏱ reloj interno */
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // 📌 leer URL (SOLO hash routing)
+  /* 📌 leer URL hash: #/tv/TRAMP/1 */
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    const hash = window.location.hash; // #/tv/TRAMP/1
-    const match = hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
-
+    const match = window.location.hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
     if (match) {
       setZoneCode(match[1].toUpperCase());
       setLocalId(Number(match[2]));
     }
   }, []);
 
-  // 📡 cargar sesiones
+  /* 📡 cargar sesiones */
   const loadSessions = async () => {
     if (!zoneCode || !localId) return;
 
@@ -48,7 +52,7 @@ export default function TvScreen() {
     setSessions(data || []);
   };
 
-  // 🔁 realtime
+  /* 🔁 realtime */
   useEffect(() => {
     if (!zoneCode || !localId) return;
 
@@ -71,19 +75,22 @@ export default function TvScreen() {
     return () => supabase.removeChannel(channel);
   }, [zoneCode, localId]);
 
-  // ⏳ helpers
-  const getRemaining = (s) => {
-    if (s.status === "finished") return "00:00";
+  /* ⏳ helpers */
+  const getRemainingSeconds = (s) => {
+    if (s.status === "finished") return 0;
     const start = new Date(s.start_time).getTime();
     const total = s.duration_minutes * 60;
     const elapsed = Math.floor((now - start) / 1000);
-    const r = Math.max(0, total - elapsed);
-    const mm = String(Math.floor(r / 60)).padStart(2, "0");
-    const ss = String(r % 60).padStart(2, "0");
+    return Math.max(0, total - elapsed);
+  };
+
+  const formatTime = (sec) => {
+    const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+    const ss = String(sec % 60).padStart(2, "0");
     return `${mm}:${ss}`;
   };
 
-  // ❌ error visible
+  /* ❌ error visible */
   if (!zoneCode || !localId) {
     return (
       <View style={styles.error}>
@@ -93,44 +100,94 @@ export default function TvScreen() {
     );
   }
 
-  // ✅ render
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>FAMILY PARK – {zoneCode}</Text>
+    <Image
+      source={require("../../assets/tv_background.png")} // 👈 tu imagen
+      style={styles.bg}
+    >
+      <View style={styles.overlay}>
+        <Image
+          source={require("../../assets/logo_familypark.png")} // 👈 tu logo
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
-      <View style={styles.grid}>
-        {sessions.map((s) => (
-          <View
-            key={s.id}
-            style={[
-              styles.card,
-              s.status === "finished" && styles.cardFinished,
-            ]}
-          >
-            <Text style={styles.name}>{s.kid_name}</Text>
-            <Text style={styles.time}>{getRemaining(s)}</Text>
-            {s.status === "finished" && (
-              <Text style={styles.finished}>TIEMPO FINALIZADO</Text>
-            )}
-          </View>
-        ))}
+        <View style={styles.grid}>
+          {sessions.map((s) => (
+            <TvCard
+              key={s.id}
+              session={s}
+              remaining={getRemainingSeconds(s)}
+            />
+          ))}
+        </View>
       </View>
-    </View>
+    </Image>
   );
 }
 
+/* 🧠 CARD */
+function TvCard({ session, remaining }) {
+  const blinkAnim = useRef(new Animated.Value(1)).current;
+  const totalSeconds = session.duration_minutes * 60;
+
+  const isHalf = remaining <= totalSeconds / 2 && remaining > 30;
+  const isBlink = remaining <= 30 && remaining > 0;
+  const isFinished = session.status === "finished";
+
+  useEffect(() => {
+    if (isBlink) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blinkAnim, {
+            toValue: 0.3,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blinkAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [isBlink]);
+
+  const cardStyle = [
+    styles.card,
+    isHalf && styles.cardHalf,
+    isFinished && styles.cardFinished,
+  ];
+
+  return (
+    <Animated.View style={[cardStyle, isBlink && { opacity: blinkAnim }]}>
+      <Text style={styles.name}>{session.kid_name}</Text>
+      <Text style={styles.time}>
+        {isFinished ? "00:00" : formatTime(remaining)}
+      </Text>
+      {isFinished && (
+        <Text style={styles.finished}>TIEMPO FINALIZADO</Text>
+      )}
+    </Animated.View>
+  );
+}
+
+/* 🎨 STYLES */
 const styles = StyleSheet.create({
-  container: {
+  bg: {
+    width,
+    height,
+  },
+  overlay: {
     flex: 1,
-    backgroundColor: "#001f3f",
+    backgroundColor: "rgba(0,0,0,0.45)",
     padding: 20,
   },
-  header: {
-    color: "#fff",
-    fontSize: 36,
-    fontWeight: "900",
-    textAlign: "center",
+  logo: {
+    height: 80,
     marginBottom: 20,
+    alignSelf: "center",
   },
   grid: {
     flexDirection: "row",
@@ -138,15 +195,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   card: {
-    width: width / 2 - 40,
+    width: width / 3 - 30,
+    minWidth: 260,
     backgroundColor: "#fff0e6",
-    borderRadius: 26,
-    padding: 24,
+    borderRadius: 30,
+    padding: 28,
     margin: 12,
     alignItems: "center",
   },
+  cardHalf: {
+    backgroundColor: "#ffeaa7",
+  },
   cardFinished: {
-    backgroundColor: "#ffe6e6",
+    backgroundColor: "#ff7675",
   },
   name: {
     fontSize: 26,
@@ -154,12 +215,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   time: {
-    fontSize: 40,
+    fontSize: 42,
     fontWeight: "900",
     marginVertical: 10,
   },
   finished: {
-    color: "#c0392b",
+    color: "#fff",
     fontWeight: "900",
     fontSize: 18,
   },
@@ -180,6 +241,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 });
+
 
 
 
