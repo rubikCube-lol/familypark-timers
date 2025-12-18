@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,174 +6,58 @@ import {
   Dimensions,
   Image,
   ImageBackground,
-  Animated,
-  ScrollView,
 } from "react-native";
 import { supabase } from "../../supabase/supabaseClient";
+import TvZoneColumn from "./TvZoneColumn";
 
 const { width, height } = Dimensions.get("window");
 
 export default function TvScreen() {
-  const [zoneCode, setZoneCode] = useState(null);
   const [localId, setLocalId] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const [now, setNow] = useState(Date.now());
+  const [zones, setZones] = useState([]);
 
-  // ⏱ reloj global (para countdown, blink y auto-hide)
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  // 📌 leer URL: #/tv/TRAMP/1
+  // 📌 leer URL: #/tv/1
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const match = window.location.hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
+
+    const match = window.location.hash.match(/#\/tv\/([^/]+)/);
     if (match) {
-      setZoneCode(match[1].toUpperCase());
-      setLocalId(Number(match[2]));
+      setLocalId(Number(match[1]));
     }
   }, []);
 
-  // 📡 cargar sesiones (activos + terminados últimos 30s)
-  const loadSessions = useCallback(async () => {
-    if (!zoneCode || !localId) return;
-
-    const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
-
-    const { data, error } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("zone_code", zoneCode)
-      .eq("local_id", localId)
-      // activos OR (finalizados en los últimos 30s)
-      .or(`status.eq.active,and(status.eq.finished,end_time.gte.${thirtySecondsAgo})`)
-      .order("start_time", { ascending: true });
-
-    if (error) {
-      console.log("TV loadSessions error:", error);
-      return;
-    }
-
-    setSessions(data || []);
-  }, [zoneCode, localId]);
-
-  // 🔁 realtime (FIX: filtro correcto con AND, NO con coma)
+  // 📡 cargar zonas del local
   useEffect(() => {
-    if (!zoneCode || !localId) return;
+    if (!localId) return;
 
-    loadSessions(); // respaldo inicial
+    const loadZones = async () => {
+      const { data, error } = await supabase
+        .from("local_zones")
+        .select("zone_code")
+        .eq("local_id", localId);
 
-    const channel = supabase
-      .channel(`tv-${localId}-${zoneCode}`)
+      if (error) {
+        console.error("Error cargando zonas:", error);
+        return;
+      }
 
-      // 🟢 NUEVO TURNO → aparece instantáneo
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "sessions",
-          filter: `zone_code=eq.${zoneCode} AND local_id=eq.${localId}`,
-        },
-        (payload) => {
-          setSessions((prev) => {
-            const exists = prev.some((s) => s.id === payload.new.id);
-            return exists ? prev : [...prev, payload.new];
-          });
-        }
-      )
-
-      // 🔄 UPDATE → cambia estado / end_time / etc
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "sessions",
-          filter: `zone_code=eq.${zoneCode} AND local_id=eq.${localId}`,
-        },
-        (payload) => {
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === payload.new.id ? payload.new : s
-            )
-          );
-        }
-      )
-
-      // ❌ DELETE → se elimina de la TV
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "sessions",
-          filter: `zone_code=eq.${zoneCode} AND local_id=eq.${localId}`,
-        },
-        (payload) => {
-          setSessions((prev) =>
-            prev.filter((s) => s.id !== payload.old.id)
-          );
-        }
-      )
-
-      .subscribe((status) => {
-        console.log("📺 TV realtime:", status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
+      setZones(data.map((z) => z.zone_code));
     };
-  }, [zoneCode, localId, loadSessions]);
 
-  //segundo use effect//
-  // 🔄 Fallback polling (FIX para INSERT que no llega por realtime)
-  useEffect(() => {
-    if (!zoneCode || !localId) return;
+    loadZones();
+  }, [localId]);
 
-    const interval = setInterval(() => {
-      loadSessions();
-    }, 2500); // cada 2.5s (imperceptible en TV)
-
-    return () => clearInterval(interval);
-  }, [zoneCode, localId, loadSessions]);
-
-
-
-  // helpers
-  const getRemainingSeconds = (s) => {
-    const start = new Date(s.start_time).getTime();
-    const total = (s.duration_minutes || 0) * 60;
-    const elapsed = Math.floor((now - start) / 1000);
-    return Math.max(0, total - elapsed);
-  };
-
-  const formatTime = (sec) => {
-    const mm = String(Math.floor(sec / 60)).padStart(2, "0");
-    const ss = String(sec % 60).padStart(2, "0");
-    return `${mm}:${ss}`;
-  };
-
-  if (!zoneCode || !localId) {
+  if (!localId) {
     return (
       <View style={styles.error}>
         <Text style={styles.errorText}>URL inválida</Text>
-        <Text style={styles.errorSub}>Usa: #/tv/TRAMP/1</Text>
+        <Text style={styles.errorSub}>Usa: #/tv/1</Text>
       </View>
     );
   }
 
-  // 🔢 ordenar sesiones por tiempo restante (menor → mayor)
-  const sortedSessions = [...sessions].sort((a, b) => {
-    const ra = getRemainingSeconds(a);
-    const rb = getRemainingSeconds(b);
-    return ra - rb;
-  });
-
   return (
     <ImageBackground
-      // deja tu fondo como lo tienes (si quieres cambiar por zona, lo vemos después)
       source={require("../../assets/zones/bg-autos.png")}
       style={styles.bg}
       resizeMode="cover"
@@ -185,114 +69,31 @@ export default function TvScreen() {
           resizeMode="contain"
         />
 
-        <ScrollView contentContainerStyle={styles.grid}>
-          {sortedSessions.map((s) => {
-            const remaining = getRemainingSeconds(s);
-            return (
-              <TvCard
-                key={s.id}
-                session={s}
-                remaining={remaining}
-                now={now}
-                formatTime={formatTime}
-              />
-            );
-          })}
-        </ScrollView>
+        <View
+          style={[
+            styles.zonesGrid,
+            zones.length === 2 && styles.twoZones,
+          ]}
+        >
+          {zones.map((zone) => (
+            <TvZoneColumn
+              key={zone}
+              localId={localId}
+              zoneCode={zone}
+            />
+          ))}
+        </View>
       </View>
     </ImageBackground>
   );
 }
 
-/* 🧠 CARD */
-function TvCard({ session, remaining, now, formatTime }) {
-  const blinkAnim = useRef(new Animated.Value(1)).current;
-
-  // Guardamos el instante en que “llegó a 0” (aunque BD aún no marque finished)
-  const zeroReachedAtRef = useRef(null);
-
-  // Total segundos (para “mitad = amarillo”)
-  const totalSeconds = (session.duration_minutes || 0) * 60;
-
-  // Cuando toca 0 por primera vez, fijamos el tiempo
-  useEffect(() => {
-    if (remaining === 0 && zeroReachedAtRef.current === null) {
-      zeroReachedAtRef.current = Date.now();
-    }
-    // Si vuelve a tener tiempo (caso raro), reseteamos
-    if (remaining > 0 && zeroReachedAtRef.current !== null) {
-      zeroReachedAtRef.current = null;
-    }
-  }, [remaining]);
-
-  // Si la BD trae end_time, lo priorizamos como inicio “finalizado”
-  const finishedAt =
-    session.end_time ? new Date(session.end_time).getTime() : zeroReachedAtRef.current;
-
-  const finishedSeconds =
-    finishedAt ? Math.floor((now - finishedAt) / 1000) : null;
-
-  // ✅ Parpadea solo DESPUÉS de llegar a 0, por 30s
-  const shouldBlink =
-    remaining === 0 && finishedSeconds !== null && finishedSeconds >= 0 && finishedSeconds <= 30;
-
-  // ✅ Auto-desaparece después de 30s desde que llegó a 0
-  const shouldHide = remaining === 0 && finishedSeconds !== null && finishedSeconds > 30;
-
-  useEffect(() => {
-    let loop;
-    if (shouldBlink) {
-      loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(blinkAnim, {
-            toValue: 0.25,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(blinkAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      loop.start();
-    } else {
-      blinkAnim.setValue(1);
-    }
-    return () => loop?.stop();
-  }, [shouldBlink, blinkAnim]);
-
-  if (shouldHide) return null;
-
-  const isHalfOrLess =
-    totalSeconds > 0 && remaining > 0 && remaining <= totalSeconds / 2;
-
-  const isFinished = remaining === 0;
-
-  return (
-    <Animated.View
-      style={[
-        styles.card,
-        isHalfOrLess && styles.cardHalf,      // 🟡 mitad del tiempo
-        isFinished && styles.cardFinished,    // 🔴 finalizado
-        shouldBlink && { opacity: blinkAnim },
-      ]}
-    >
-      <Text style={styles.name}>{session.kid_name}</Text>
-
-      <Text style={styles.time}>
-        {isFinished ? "00:00" : formatTime(remaining)}
-      </Text>
-
-      {isFinished && <Text style={styles.finished}>TIEMPO FINALIZADO</Text>}
-    </Animated.View>
-  );
-}
-
 /* 🎨 STYLES */
 const styles = StyleSheet.create({
-  bg: { width, height },
+  bg: {
+    width,
+    height,
+  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -304,49 +105,15 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
 
-  // ✅ grid responsivo (se ordenan solas y bajan a nuevas filas)
-  grid: {
+  zonesGrid: {
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
-    alignItems: "flex-start",
-    paddingBottom: 40,
   },
 
-  card: {
-    width: width / 3 - 30,
-    minWidth: 260,
-    backgroundColor: "#fff0e6",
-    borderRadius: 30,
-    padding: 28,
-    margin: 12,
-    alignItems: "center",
-  },
-
-  // 🟡 mitad del tiempo
-  cardHalf: {
-    backgroundColor: "#ffeaa7",
-  },
-
-  // 🔴 finalizado
-  cardFinished: {
-    backgroundColor: "#ff7675",
-  },
-
-  name: {
-    fontSize: 26,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  time: {
-    fontSize: 42,
-    fontWeight: "900",
-    marginVertical: 10,
-  },
-  finished: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 18,
+  // cuando son solo 2 zonas
+  twoZones: {
+    flexDirection: "row",
   },
 
   error: {
@@ -366,6 +133,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 });
+
 
 
 
