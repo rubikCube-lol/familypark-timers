@@ -30,7 +30,7 @@ const ZONE_CONFIG = {
   },
   KINDER: {
     label: "KINDER ZONE",
-    background: require("../../assets/zones/bg-kinder.png"),
+    background: require("../../assets/zones/bg-softplay.png"),
   },
 };
 
