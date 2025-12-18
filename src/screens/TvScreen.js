@@ -5,65 +5,45 @@ import { supabase } from "../supabase/supabaseClient";
 const { width } = Dimensions.get("window");
 
 export default function TvScreen({ route }) {
-  // ===============================
-  // 1. PARAMS DESDE MOBILE (si existieran)
-  // ===============================
-  let zoneCode = route?.params?.zoneCode ?? null;
-  let localId = route?.params?.localId ?? null;
+  const [zoneCode, setZoneCode] = useState(null);
+  const [localId, setLocalId] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [ready, setReady] = useState(false);
 
   // ===============================
-  // 2. PARAMS DESDE WEB (HASH ROUTER)
+  // 1. OBTENER PARAMS (MOBILE + WEB)
   // ===============================
-  if (typeof window !== "undefined" && (!zoneCode || !localId)) {
-    const hash = window.location.hash;
+  useEffect(() => {
+    let z = route?.params?.zoneCode ?? null;
+    let l = route?.params?.localId ?? null;
 
-    // Formato: #/tv/TRAMP/1
-    const pathMatch = hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
-    if (pathMatch) {
-      zoneCode = pathMatch[1].toUpperCase();
-      localId = Number(pathMatch[2]);
-    }
+    // WEB (hash routing)
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
 
-    // Formato: #/tv?zoneCode=TRAMP&localId=1
-    if (!zoneCode || !localId) {
-      const queryString = hash.split("?")[1];
-      if (queryString) {
-        const params = new URLSearchParams(queryString);
-        zoneCode = params.get("zoneCode")?.toUpperCase();
-        localId = Number(params.get("localId"));
+      // #/tv/TRAMP/1
+      const pathMatch = hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
+      if (pathMatch) {
+        z = pathMatch[1].toUpperCase();
+        l = Number(pathMatch[2]);
       }
     }
-  }
+
+    if (z && l) {
+      setZoneCode(z);
+      setLocalId(l);
+    }
+
+    setReady(true);
+  }, []);
 
   // ===============================
-  // 3. VALIDACIÓN
-  // ===============================
-  if (!zoneCode || !localId) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>❌ Falta zoneCode o localId</Text>
-        <Text style={styles.errorSubtitle}>
-          Usa:
-          {"\n"}#/tv/TRAMP/1
-          {"\n"}o
-          {"\n"}#/tv?zoneCode=TRAMP&localId=1
-        </Text>
-      </View>
-    );
-  }
-
-  // ===============================
-  // 4. STATE
-  // ===============================
-  const [sessions, setSessions] = useState([]);
-
-  // ===============================
-  // 5. LOAD SESSIONS
+  // 2. CARGAR SESIONES
   // ===============================
   const loadSessions = async () => {
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("sessions")
       .select("*")
       .eq("zone_code", zoneCode)
@@ -73,15 +53,15 @@ export default function TvScreen({ route }) {
       )
       .order("start_time", { ascending: true });
 
-    if (!error && data) {
-      setSessions(data);
-    }
+    if (data) setSessions(data);
   };
 
   // ===============================
-  // 6. REALTIME
+  // 3. REALTIME
   // ===============================
   useEffect(() => {
+    if (!zoneCode || !localId) return;
+
     loadSessions();
 
     const channel = supabase
@@ -94,9 +74,7 @@ export default function TvScreen({ route }) {
           table: "sessions",
           filter: `zone_code=eq.${zoneCode},local_id=eq.${localId}`,
         },
-        () => {
-          loadSessions();
-        }
+        loadSessions
       )
       .subscribe();
 
@@ -106,13 +84,28 @@ export default function TvScreen({ route }) {
   }, [zoneCode, localId]);
 
   // ===============================
-  // 7. RENDER
+  // 4. LOADING / ERROR
+  // ===============================
+  if (!ready) return null;
+
+  if (!zoneCode || !localId) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>❌ Parámetros inválidos</Text>
+        <Text style={styles.errorSubtitle}>
+          Usa:
+          {"\n"}#/tv/TRAMP/1
+        </Text>
+      </View>
+    );
+  }
+
+  // ===============================
+  // 5. RENDER
   // ===============================
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>
-        FAMILY PARK – {zoneCode}
-      </Text>
+      <Text style={styles.header}>FAMILY PARK – {zoneCode}</Text>
 
       <ScrollView contentContainerStyle={styles.grid}>
         {sessions.map((s) => (
@@ -201,6 +194,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
 
 
 
