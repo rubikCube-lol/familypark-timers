@@ -5,7 +5,9 @@ import {
   StyleSheet,
   Dimensions,
   Image,
+  ImageBackground,
   Animated,
+  ScrollView,
 } from "react-native";
 import { supabase } from "../../supabase/supabaseClient";
 
@@ -17,13 +19,13 @@ export default function TvScreen() {
   const [sessions, setSessions] = useState([]);
   const [now, setNow] = useState(Date.now());
 
-  /* ⏱ reloj interno */
+  /* ⏱ reloj */
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  /* 📌 leer URL hash: #/tv/TRAMP/1 */
+  /* 📌 leer URL: #/tv/TRAMP/1 */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const match = window.location.hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
@@ -75,7 +77,7 @@ export default function TvScreen() {
     return () => supabase.removeChannel(channel);
   }, [zoneCode, localId]);
 
-  /* ⏳ helpers */
+  /* helpers */
   const getRemainingSeconds = (s) => {
     if (s.status === "finished") return 0;
     const start = new Date(s.start_time).getTime();
@@ -90,7 +92,6 @@ export default function TvScreen() {
     return `${mm}:${ss}`;
   };
 
-  /* ❌ error visible */
   if (!zoneCode || !localId) {
     return (
       <View style={styles.error}>
@@ -101,33 +102,38 @@ export default function TvScreen() {
   }
 
   return (
-    <Image
-      source={require("../../assets/zones/bg-autos.png")} // 👈 tu imagen
+    <ImageBackground
+      source={require("../../assets/zones/bg-autos.png")}
       style={styles.bg}
+      resizeMode="cover"
     >
       <View style={styles.overlay}>
         <Image
-          source={require("../../assets/logo-familypark.png")} // 👈 tu logo
+          source={require("../../assets/logo-familypark.png")}
           style={styles.logo}
           resizeMode="contain"
         />
 
-        <View style={styles.grid}>
-          {sessions.map((s) => (
-            <TvCard
-              key={s.id}
-              session={s}
-              remaining={getRemainingSeconds(s)}
-            />
-          ))}
-        </View>
+        <ScrollView contentContainerStyle={styles.grid}>
+          {sessions.map((s) => {
+            const remaining = getRemainingSeconds(s);
+            return (
+              <TvCard
+                key={s.id}
+                session={s}
+                remaining={remaining}
+                formatTime={formatTime}
+              />
+            );
+          })}
+        </ScrollView>
       </View>
-    </Image>
+    </ImageBackground>
   );
 }
 
 /* 🧠 CARD */
-function TvCard({ session, remaining }) {
+function TvCard({ session, remaining, formatTime }) {
   const blinkAnim = useRef(new Animated.Value(1)).current;
   const totalSeconds = session.duration_minutes * 60;
 
@@ -136,8 +142,9 @@ function TvCard({ session, remaining }) {
   const isFinished = session.status === "finished";
 
   useEffect(() => {
+    let loop;
     if (isBlink) {
-      Animated.loop(
+      loop = Animated.loop(
         Animated.sequence([
           Animated.timing(blinkAnim, {
             toValue: 0.3,
@@ -150,18 +157,21 @@ function TvCard({ session, remaining }) {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      loop.start();
     }
+    return () => loop?.stop();
   }, [isBlink]);
 
-  const cardStyle = [
-    styles.card,
-    isHalf && styles.cardHalf,
-    isFinished && styles.cardFinished,
-  ];
-
   return (
-    <Animated.View style={[cardStyle, isBlink && { opacity: blinkAnim }]}>
+    <Animated.View
+      style={[
+        styles.card,
+        isHalf && styles.cardHalf,
+        isFinished && styles.cardFinished,
+        isBlink && { opacity: blinkAnim },
+      ]}
+    >
       <Text style={styles.name}>{session.kid_name}</Text>
       <Text style={styles.time}>
         {isFinished ? "00:00" : formatTime(remaining)}
@@ -185,7 +195,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   logo: {
-    height: 80,
+    height: 90,
     marginBottom: 20,
     alignSelf: "center",
   },
@@ -193,6 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
+    paddingBottom: 40,
   },
   card: {
     width: width / 3 - 30,
@@ -241,6 +252,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 });
+
 
 
 
