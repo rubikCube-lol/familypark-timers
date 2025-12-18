@@ -19,7 +19,7 @@ export default function TvScreen() {
   const [sessions, setSessions] = useState([]);
   const [now, setNow] = useState(Date.now());
 
-  /* ⏱ reloj */
+  /* ⏱ reloj global */
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -54,7 +54,7 @@ export default function TvScreen() {
     setSessions(data || []);
   };
 
-  /* 🔁 realtime */
+  /* 🔁 realtime (CLAVE DEL FIX) */
   useEffect(() => {
     if (!zoneCode || !localId) return;
 
@@ -70,7 +70,9 @@ export default function TvScreen() {
           table: "sessions",
           filter: `zone_code=eq.${zoneCode},local_id=eq.${localId}`,
         },
-        loadSessions
+        () => {
+          loadSessions(); // 🔥 SIEMPRE refresca
+        }
       )
       .subscribe();
 
@@ -122,6 +124,7 @@ export default function TvScreen() {
                 key={s.id}
                 session={s}
                 remaining={remaining}
+                now={now}
                 formatTime={formatTime}
               />
             );
@@ -133,17 +136,24 @@ export default function TvScreen() {
 }
 
 /* 🧠 CARD */
-function TvCard({ session, remaining, formatTime }) {
+function TvCard({ session, remaining, now, formatTime }) {
   const blinkAnim = useRef(new Animated.Value(1)).current;
-  const totalSeconds = session.duration_minutes * 60;
 
-  const isHalf = remaining <= totalSeconds / 2 && remaining > 30;
-  const isBlink = remaining <= 30 && remaining > 0;
-  const isFinished = session.status === "finished";
+  const finishedAt = session.end_time
+    ? new Date(session.end_time).getTime()
+    : null;
+
+  const finishedSeconds =
+    finishedAt !== null ? Math.floor((now - finishedAt) / 1000) : 0;
+
+  const shouldBlink =
+    session.status === "finished" &&
+    finishedSeconds >= 0 &&
+    finishedSeconds <= 30;
 
   useEffect(() => {
     let loop;
-    if (isBlink) {
+    if (shouldBlink) {
       loop = Animated.loop(
         Animated.sequence([
           Animated.timing(blinkAnim, {
@@ -161,22 +171,21 @@ function TvCard({ session, remaining, formatTime }) {
       loop.start();
     }
     return () => loop?.stop();
-  }, [isBlink]);
+  }, [shouldBlink]);
 
   return (
     <Animated.View
       style={[
         styles.card,
-        isHalf && styles.cardHalf,
-        isFinished && styles.cardFinished,
-        isBlink && { opacity: blinkAnim },
+        remaining === 0 && styles.cardFinished,
+        shouldBlink && { opacity: blinkAnim },
       ]}
     >
       <Text style={styles.name}>{session.kid_name}</Text>
       <Text style={styles.time}>
-        {isFinished ? "00:00" : formatTime(remaining)}
+        {remaining === 0 ? "00:00" : formatTime(remaining)}
       </Text>
-      {isFinished && (
+      {remaining === 0 && (
         <Text style={styles.finished}>TIEMPO FINALIZADO</Text>
       )}
     </Animated.View>
@@ -185,10 +194,7 @@ function TvCard({ session, remaining, formatTime }) {
 
 /* 🎨 STYLES */
 const styles = StyleSheet.create({
-  bg: {
-    width,
-    height,
-  },
+  bg: { width, height },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -213,9 +219,6 @@ const styles = StyleSheet.create({
     padding: 28,
     margin: 12,
     alignItems: "center",
-  },
-  cardHalf: {
-    backgroundColor: "#ffeaa7",
   },
   cardFinished: {
     backgroundColor: "#ff7675",
@@ -252,6 +255,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 });
+
 
 
 
