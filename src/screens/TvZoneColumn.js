@@ -7,61 +7,66 @@ import {
   Animated,
   ScrollView,
   ImageBackground,
+  Image,
 } from "react-native";
 import { supabase } from "../../supabase/supabaseClient";
 
-const { width } = Dimensions.get("window");
-
 const ZONE_CONFIG = {
   TRAMP: {
-    label: 'TRAMPOLINE ZONE',
-    background: require('../../assets/bg-trampoline.png'),
+    label: "TRAMPOLINE ZONE",
+    background: require("../../assets/zones/bg-trampoline.png"),
   },
   INFL: {
-    label: 'JUEGOS INFLABLES',
-    background: require('../../assets/bg-inflables.png'),
+    label: "JUEGOS INFLABLES",
+    background: require("../../assets/zones/bg-inflables.png"),
   },
   SOFT: {
-    label: 'SOFT PLAY',
-    background: require('../../assets/bg-softplay.png'),
+    label: "SOFT PLAY",
+    background: require("../../assets/zones/bg-softplay.png"),
   },
   AUTOS: {
-    label: 'AUTOS CHOCADORES',
-    background: require('../../assets/bg-autos.png'),
+    label: "AUTOS CHOCADORES",
+    background: require("../../assets/zones/bg-autos.png"),
+  },
+  KINDER: {
+    label: "KINDER ZONE",
+    background: require("../../assets/zones/bg-kinder.png"),
   },
 };
 
-
-export default function TvZoneColumn({ localId, zoneCode }) {
+export default function TvZoneColumn({ localId, zoneCode, style }) {
   const [sessions, setSessions] = useState([]);
   const [now, setNow] = useState(Date.now());
 
-  /* ⏱ reloj global */
+  // ⏱ reloj global (para countdown)
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  /* 📡 cargar sesiones */
+  // 📡 cargar sesiones de esta zona
   const loadSessions = useCallback(async () => {
     if (!zoneCode || !localId) return;
 
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sessions")
       .select("*")
       .eq("zone_code", zoneCode)
       .eq("local_id", localId)
-      .or(
-        `status.eq.active,and(status.eq.finished,end_time.gte.${thirtySecondsAgo})`
-      )
+      .or(`status.eq.active,and(status.eq.finished,end_time.gte.${thirtySecondsAgo})`)
       .order("start_time", { ascending: true });
+
+    if (error) {
+      console.error("loadSessions error:", error);
+      return;
+    }
 
     setSessions(data || []);
   }, [zoneCode, localId]);
 
-  /* 🔁 realtime + fallback polling */
+  // 🔁 realtime + fallback polling
   useEffect(() => {
     if (!zoneCode || !localId) return;
 
@@ -75,17 +80,13 @@ export default function TvZoneColumn({ localId, zoneCode }) {
           event: "*",
           schema: "public",
           table: "sessions",
+          filter: `local_id=eq.${localId}`,
         },
         (payload) => {
-          const row =
-            payload.eventType === "DELETE"
-              ? payload.old
-              : payload.new;
+          const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+          if (!row) return;
 
-          if (
-            row.zone_code === zoneCode &&
-            String(row.local_id) === String(localId)
-          ) {
+          if (row.zone_code === zoneCode && String(row.local_id) === String(localId)) {
             loadSessions();
           }
         }
@@ -100,7 +101,7 @@ export default function TvZoneColumn({ localId, zoneCode }) {
     };
   }, [zoneCode, localId, loadSessions]);
 
-  /* helpers */
+  // helpers
   const getRemainingSeconds = (s) => {
     const start = new Date(s.start_time).getTime();
     const total = (s.duration_minutes || 0) * 60;
@@ -114,55 +115,52 @@ export default function TvZoneColumn({ localId, zoneCode }) {
     return `${mm}:${ss}`;
   };
 
-  /* ordenar por tiempo restante */
+  // ordenar por tiempo restante (menor arriba)
   const sortedSessions = [...sessions].sort(
     (a, b) => getRemainingSeconds(a) - getRemainingSeconds(b)
   );
 
-  return (
-    <ImageBackground
-        source={ZONE_CONFIG[zoneCode]?.background}
-        style={styles.column}
-        resizeMode="cover"
-    >
-        {/* HEADER */}
-        <View style={styles.header}>
-        <Image
-            source={require('../../assets/familypark-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-        />
-        <Text style={styles.zoneTitle}>
-            {ZONE_CONFIG[zoneCode]?.label}
-        </Text>
-        </View>
+  const bg = ZONE_CONFIG[zoneCode]?.background || ZONE_CONFIG.TRAMP.background;
+  const label = ZONE_CONFIG[zoneCode]?.label || zoneCode;
 
-        {/* CARDS */}
-        <ScrollView contentContainerStyle={styles.grid}>
+  return (
+    <ImageBackground source={bg} style={[styles.column, style]} resizeMode="cover">
+      {/* Header por zona */}
+      <View style={styles.header}>
+        <Image
+          source={require("../../assets/logo-familypark.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.zoneTitle}>{label}</Text>
+      </View>
+
+      {/* Cards */}
+      <ScrollView contentContainerStyle={styles.grid}>
         {sortedSessions.map((s) => {
-            const remaining = getRemainingSeconds(s);
-            return (
-            <TVCard
-                key={s.id}
-                session={s}
-                remaining={remaining}
-                now={now}
-                formatTime={formatTime}
+          const remaining = getRemainingSeconds(s);
+          return (
+            <TvCard
+              key={s.id}
+              session={s}
+              remaining={remaining}
+              now={now}
+              formatTime={formatTime}
             />
-            );
+          );
         })}
-        </ScrollView>
+      </ScrollView>
     </ImageBackground>
-    );
+  );
 }
 
-/* 🧠 CARD */
 function TvCard({ session, remaining, now, formatTime }) {
   const blinkAnim = useRef(new Animated.Value(1)).current;
-  const totalSeconds = (session.duration_minutes || 0) * 60;
 
+  const totalSeconds = (session.duration_minutes || 0) * 60;
   const zeroReachedAtRef = useRef(null);
 
+  // guardar “momento exacto” en que llegó a 0
   useEffect(() => {
     if (remaining === 0 && zeroReachedAtRef.current === null) {
       zeroReachedAtRef.current = Date.now();
@@ -195,16 +193,8 @@ function TvCard({ session, remaining, now, formatTime }) {
     if (shouldBlink) {
       loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(blinkAnim, {
-            toValue: 0.25,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(blinkAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
+          Animated.timing(blinkAnim, { toValue: 0.25, duration: 500, useNativeDriver: true }),
+          Animated.timing(blinkAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
         ])
       );
       loop.start();
@@ -212,12 +202,11 @@ function TvCard({ session, remaining, now, formatTime }) {
       blinkAnim.setValue(1);
     }
     return () => loop?.stop();
-  }, [shouldBlink]);
+  }, [shouldBlink, blinkAnim]);
 
   if (shouldHide) return null;
 
-  const isHalf =
-    totalSeconds > 0 && remaining > 0 && remaining <= totalSeconds / 2;
+  const isHalf = totalSeconds > 0 && remaining > 0 && remaining <= totalSeconds / 2;
 
   return (
     <Animated.View
@@ -229,62 +218,65 @@ function TvCard({ session, remaining, now, formatTime }) {
       ]}
     >
       <Text style={styles.name}>{session.kid_name}</Text>
+
       <Text style={styles.time}>
         {remaining === 0 ? "00:00" : formatTime(remaining)}
       </Text>
-      {remaining === 0 && (
-        <Text style={styles.finished}>TIEMPO FINALIZADO</Text>
-      )}
+
+      {remaining === 0 && <Text style={styles.finished}>TIEMPO FINALIZADO</Text>}
     </Animated.View>
   );
 }
 
-/* 🎨 STYLES */
 const styles = StyleSheet.create({
   column: {
     flex: 1,
+    borderRadius: 18,
+    overflow: "hidden",
     padding: 10,
   },
+
+  header: {
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+  logo: { height: 34, width: 120 },
   zoneTitle: {
     color: "#fff",
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "900",
-    textAlign: "center",
-    marginBottom: 8,
+    flex: 1,
   },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
+    gap: 10,
+    paddingBottom: 14,
   },
+
+  // Cards responsive dentro de la columna
   card: {
-    width: width / 4 - 30,
-    minWidth: 220,
+    width: "48%",
+    minWidth: 170,
     backgroundColor: "#fff0e6",
-    borderRadius: 24,
-    padding: 18,
-    margin: 8,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     alignItems: "center",
   },
-  cardHalf: {
-    backgroundColor: "#ffeaa7",
-  },
-  cardFinished: {
-    backgroundColor: "#ff7675",
-  },
-  name: {
-    fontSize: 20,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  time: {
-    fontSize: 32,
-    fontWeight: "900",
-    marginVertical: 6,
-  },
-  finished: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 14,
-  },
+  cardHalf: { backgroundColor: "#ffeaa7" },
+  cardFinished: { backgroundColor: "#ff7675" },
+
+  name: { fontSize: 18, fontWeight: "900", textAlign: "center" },
+  time: { fontSize: 30, fontWeight: "900", marginVertical: 6 },
+  finished: { color: "#fff", fontWeight: "900", fontSize: 12 },
 });
+
