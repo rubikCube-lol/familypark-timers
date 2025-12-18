@@ -1,46 +1,38 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Dimensions, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { supabase } from "../supabase/supabaseClient";
 
 const { width } = Dimensions.get("window");
 
-export default function TvScreen({ route }) {
+export default function TvScreen() {
   const [zoneCode, setZoneCode] = useState(null);
   const [localId, setLocalId] = useState(null);
   const [sessions, setSessions] = useState([]);
-  const [ready, setReady] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
-  // ===============================
-  // 1. OBTENER PARAMS (MOBILE + WEB)
-  // ===============================
+  // ⏱ reloj interno
   useEffect(() => {
-    let z = route?.params?.zoneCode ?? null;
-    let l = route?.params?.localId ?? null;
-
-    // WEB (hash routing)
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-
-      // #/tv/TRAMP/1
-      const pathMatch = hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
-      if (pathMatch) {
-        z = pathMatch[1].toUpperCase();
-        l = Number(pathMatch[2]);
-      }
-    }
-
-    if (z && l) {
-      setZoneCode(z);
-      setLocalId(l);
-    }
-
-    setReady(true);
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  // ===============================
-  // 2. CARGAR SESIONES
-  // ===============================
+  // 📌 leer URL (SOLO hash routing)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hash = window.location.hash; // #/tv/TRAMP/1
+    const match = hash.match(/#\/tv\/([^/]+)\/([^/]+)/);
+
+    if (match) {
+      setZoneCode(match[1].toUpperCase());
+      setLocalId(Number(match[2]));
+    }
+  }, []);
+
+  // 📡 cargar sesiones
   const loadSessions = async () => {
+    if (!zoneCode || !localId) return;
+
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
 
     const { data } = await supabase
@@ -53,12 +45,10 @@ export default function TvScreen({ route }) {
       )
       .order("start_time", { ascending: true });
 
-    if (data) setSessions(data);
+    setSessions(data || []);
   };
 
-  // ===============================
-  // 3. REALTIME
-  // ===============================
+  // 🔁 realtime
   useEffect(() => {
     if (!zoneCode || !localId) return;
 
@@ -78,36 +68,37 @@ export default function TvScreen({ route }) {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, [zoneCode, localId]);
 
-  // ===============================
-  // 4. LOADING / ERROR
-  // ===============================
-  if (!ready) return null;
+  // ⏳ helpers
+  const getRemaining = (s) => {
+    if (s.status === "finished") return "00:00";
+    const start = new Date(s.start_time).getTime();
+    const total = s.duration_minutes * 60;
+    const elapsed = Math.floor((now - start) / 1000);
+    const r = Math.max(0, total - elapsed);
+    const mm = String(Math.floor(r / 60)).padStart(2, "0");
+    const ss = String(r % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  };
 
+  // ❌ error visible
   if (!zoneCode || !localId) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>❌ Parámetros inválidos</Text>
-        <Text style={styles.errorSubtitle}>
-          Usa:
-          {"\n"}#/tv/TRAMP/1
-        </Text>
+      <View style={styles.error}>
+        <Text style={styles.errorText}>URL inválida</Text>
+        <Text style={styles.errorSub}>Usa: #/tv/TRAMP/1</Text>
       </View>
     );
   }
 
-  // ===============================
-  // 5. RENDER
-  // ===============================
+  // ✅ render
   return (
     <View style={styles.container}>
       <Text style={styles.header}>FAMILY PARK – {zoneCode}</Text>
 
-      <ScrollView contentContainerStyle={styles.grid}>
+      <View style={styles.grid}>
         {sessions.map((s) => (
           <View
             key={s.id}
@@ -117,20 +108,17 @@ export default function TvScreen({ route }) {
             ]}
           >
             <Text style={styles.name}>{s.kid_name}</Text>
-            <Text style={styles.time}>{s.remaining_time}</Text>
+            <Text style={styles.time}>{getRemaining(s)}</Text>
             {s.status === "finished" && (
               <Text style={styles.finished}>TIEMPO FINALIZADO</Text>
             )}
           </View>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
-// ===============================
-// STYLES
-// ===============================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -138,9 +126,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    color: "white",
-    fontSize: 32,
-    fontWeight: "bold",
+    color: "#fff",
+    fontSize: 36,
+    fontWeight: "900",
     textAlign: "center",
     marginBottom: 20,
   },
@@ -150,50 +138,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   card: {
-    width: width / 2 - 30,
+    width: width / 2 - 40,
     backgroundColor: "#fff0e6",
-    borderRadius: 24,
+    borderRadius: 26,
     padding: 24,
-    margin: 10,
+    margin: 12,
     alignItems: "center",
   },
   cardFinished: {
     backgroundColor: "#ffe6e6",
   },
   name: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 26,
+    fontWeight: "900",
     textAlign: "center",
   },
   time: {
-    fontSize: 36,
-    fontWeight: "bold",
+    fontSize: 40,
+    fontWeight: "900",
     marginVertical: 10,
   },
   finished: {
     color: "#c0392b",
-    fontWeight: "bold",
-    marginTop: 8,
+    fontWeight: "900",
+    fontSize: 18,
   },
-  errorContainer: {
+  error: {
     flex: 1,
     backgroundColor: "#001f3f",
     justifyContent: "center",
     alignItems: "center",
-    padding: 40,
   },
-  errorTitle: {
+  errorText: {
     color: "white",
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontSize: 30,
+    fontWeight: "900",
   },
-  errorSubtitle: {
+  errorSub: {
     color: "#ccc",
     fontSize: 18,
-    textAlign: "center",
+    marginTop: 10,
   },
 });
+
 
 
 
