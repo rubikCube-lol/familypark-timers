@@ -127,6 +127,19 @@ export default function TvScreen() {
     };
   }, [zoneCode, localId, loadSessions]);
 
+  //segundo use effect//
+  // 🔄 Fallback polling (FIX para INSERT que no llega por realtime)
+  useEffect(() => {
+    if (!zoneCode || !localId) return;
+
+    const interval = setInterval(() => {
+      loadSessions();
+    }, 2500); // cada 2.5s (imperceptible en TV)
+
+    return () => clearInterval(interval);
+  }, [zoneCode, localId, loadSessions]);
+
+
 
   // helpers
   const getRemainingSeconds = (s) => {
