@@ -164,6 +164,13 @@ export default function TvScreen() {
     );
   }
 
+  // 🔢 ordenar sesiones por tiempo restante (menor → mayor)
+  const sortedSessions = [...sessions].sort((a, b) => {
+    const ra = getRemainingSeconds(a);
+    const rb = getRemainingSeconds(b);
+    return ra - rb;
+  });
+
   return (
     <ImageBackground
       // deja tu fondo como lo tienes (si quieres cambiar por zona, lo vemos después)
@@ -179,7 +186,7 @@ export default function TvScreen() {
         />
 
         <ScrollView contentContainerStyle={styles.grid}>
-          {sessions.map((s) => {
+          {sortedSessions.map((s) => {
             const remaining = getRemainingSeconds(s);
             return (
               <TvCard
