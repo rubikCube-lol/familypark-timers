@@ -107,7 +107,7 @@ export default function TvScreen() {
     >
       <View style={styles.overlay}>
         <Image
-          source={require("../../assets/logo_familypark.png")} // 👈 tu logo
+          source={require("../../assets/logo-familypark.png")} // 👈 tu logo
           style={styles.logo}
           resizeMode="contain"
         />
