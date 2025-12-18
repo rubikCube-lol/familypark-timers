@@ -62,31 +62,71 @@ export default function TvScreen() {
   useEffect(() => {
     if (!zoneCode || !localId) return;
 
-    loadSessions();
+    loadSessions(); // respaldo inicial
 
     const channel = supabase
       .channel(`tv-${localId}-${zoneCode}`)
+
+      // 🟢 NUEVO TURNO → aparece instantáneo
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "sessions",
-          // ✅ así funciona: con AND
           filter: `zone_code=eq.${zoneCode} AND local_id=eq.${localId}`,
         },
-        () => {
-          loadSessions();
+        (payload) => {
+          setSessions((prev) => {
+            const exists = prev.some((s) => s.id === payload.new.id);
+            return exists ? prev : [...prev, payload.new];
+          });
         }
       )
+
+      // 🔄 UPDATE → cambia estado / end_time / etc
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sessions",
+          filter: `zone_code=eq.${zoneCode} AND local_id=eq.${localId}`,
+        },
+        (payload) => {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === payload.new.id ? payload.new : s
+            )
+          );
+        }
+      )
+
+      // ❌ DELETE → se elimina de la TV
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "sessions",
+          filter: `zone_code=eq.${zoneCode} AND local_id=eq.${localId}`,
+        },
+        (payload) => {
+          setSessions((prev) =>
+            prev.filter((s) => s.id !== payload.old.id)
+          );
+        }
+      )
+
       .subscribe((status) => {
-        console.log("🟢 TV channel:", status);
+        console.log("📺 TV realtime:", status);
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [zoneCode, localId, loadSessions]);
+
 
   // helpers
   const getRemainingSeconds = (s) => {
