@@ -6,10 +6,31 @@ import {
   Dimensions,
   Animated,
   ScrollView,
+  ImageBackground,
 } from "react-native";
 import { supabase } from "../../supabase/supabaseClient";
 
 const { width } = Dimensions.get("window");
+
+const ZONE_CONFIG = {
+  TRAMP: {
+    label: 'TRAMPOLINE ZONE',
+    background: require('../../assets/bg-trampoline.png'),
+  },
+  INFL: {
+    label: 'JUEGOS INFLABLES',
+    background: require('../../assets/bg-inflables.png'),
+  },
+  SOFT: {
+    label: 'SOFT PLAY',
+    background: require('../../assets/bg-softplay.png'),
+  },
+  AUTOS: {
+    label: 'AUTOS CHOCADORES',
+    background: require('../../assets/bg-autos.png'),
+  },
+};
+
 
 export default function TvZoneColumn({ localId, zoneCode }) {
   const [sessions, setSessions] = useState([]);
@@ -99,25 +120,40 @@ export default function TvZoneColumn({ localId, zoneCode }) {
   );
 
   return (
-    <View style={styles.column}>
-      <Text style={styles.zoneTitle}>{zoneCode}</Text>
+    <ImageBackground
+        source={ZONE_CONFIG[zoneCode]?.background}
+        style={styles.column}
+        resizeMode="cover"
+    >
+        {/* HEADER */}
+        <View style={styles.header}>
+        <Image
+            source={require('../../assets/familypark-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+        />
+        <Text style={styles.zoneTitle}>
+            {ZONE_CONFIG[zoneCode]?.label}
+        </Text>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.grid}>
+        {/* CARDS */}
+        <ScrollView contentContainerStyle={styles.grid}>
         {sortedSessions.map((s) => {
-          const remaining = getRemainingSeconds(s);
-          return (
-            <TvCard
-              key={s.id}
-              session={s}
-              remaining={remaining}
-              now={now}
-              formatTime={formatTime}
+            const remaining = getRemainingSeconds(s);
+            return (
+            <TVCard
+                key={s.id}
+                session={s}
+                remaining={remaining}
+                now={now}
+                formatTime={formatTime}
             />
-          );
+            );
         })}
-      </ScrollView>
-    </View>
-  );
+        </ScrollView>
+    </ImageBackground>
+    );
 }
 
 /* 🧠 CARD */

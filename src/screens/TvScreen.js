@@ -8,7 +8,7 @@ import {
   ImageBackground,
 } from "react-native";
 import { supabase } from "../../supabase/supabaseClient";
-import TvZoneColumn from "./TvZoneColumn";
+import { TvZoneColumn } from "../..screens/TvZoneColumn";
 
 const { width, height } = Dimensions.get("window");
 
