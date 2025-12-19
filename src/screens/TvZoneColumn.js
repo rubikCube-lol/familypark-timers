@@ -210,22 +210,24 @@ function TvCard({ session, remaining, now, formatTime }) {
 
   return (
     <Animated.View
-      style={[
+        style={[
         styles.card,
-        isHalf && styles.cardHalf,
+        remaining <= session.duration / 2 && styles.cardHalf,
         remaining === 0 && styles.cardFinished,
-        shouldBlink && { opacity: blinkAnim },
-      ]}
+        { opacity: blinkAnim },
+        ]}
     >
-      <Text style={styles.name}>{session.kid_name}</Text>
+        <Text style={styles.name}>{session.child_name}</Text>
 
-      <Text style={styles.time}>
-        {remaining === 0 ? "00:00" : formatTime(remaining)}
-      </Text>
-
-      {remaining === 0 && <Text style={styles.finished}>TIEMPO FINALIZADO</Text>}
+        {remaining > 0 ? (
+        <Text style={styles.time}>{formatTime(remaining)}</Text>
+        ) : (
+        <Text style={styles.finished}>TIEMPO FINALIZADO</Text>
+        )}
     </Animated.View>
-  );
+    );
+
+
 }
 
 const styles = StyleSheet.create({
@@ -246,12 +248,18 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 10,
   },
-  logo: { height: 34, width: 120 },
+
+  logo: {
+    width: 110,
+    height: 36,
+    resizeMode: "contain",
+    marginRight: 12,
+  },
+  
   zoneTitle: {
+    fontSize: 26,
+    fontWeight: "bold",
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "900",
-    flex: 1,
   },
 
   grid: {
@@ -262,7 +270,33 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
 
+  zoneWrapper: {
+    flex: 1,
+    width: "50%",
+    height: "50%", // SOLO se usa cuando son 4 zonas
+  },
+
+  zoneBg: {
+    flex: 1,
+    padding: 16,
+  },
+
+  zoneHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+
   // Cards responsive dentro de la columna
+
+  cardsContainer: {
+    paddingBottom: 40,
+  },
+
   card: {
     width: "48%",
     minWidth: 170,

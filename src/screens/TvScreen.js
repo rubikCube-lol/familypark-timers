@@ -96,89 +96,53 @@ export default function TvScreen() {
   const isTwoZones = zones.length === 2;
 
   return (
-    <ImageBackground
-      source={require("../../assets/zones/bg-autos.png")}
-      style={styles.bg}
-      resizeMode="cover"
-    >
-      <View style={styles.overlay}>
-        {/* Header global */}
-        <View style={styles.topHeader}>
-          <Image
-            source={require("../../assets/logo-familypark.png")}
-            style={styles.mainLogo}
-            resizeMode="contain"
-          />
-          <Text style={styles.localText}>LOCAL #{localId}</Text>
-        </View>
-
-        {/* Grid de zonas */}
-        <View style={[styles.zonesGrid, isTwoZones && styles.zonesGridTwo]}>
-          {zones.map((zoneCode) => (
+    <View style={styles.root}>
+      {zones.length === 4 && (
+        <View style={styles.grid4}>
+          {zones.map(zoneCode => (
             <TvZoneColumn
               key={zoneCode}
-              localId={localId}
               zoneCode={zoneCode}
-              style={isTwoZones ? styles.zoneCellTwo : styles.zoneCellFour}
+              localId={localId}
             />
           ))}
         </View>
-      </View>
-    </ImageBackground>
+      )}
+
+      {zones.length === 2 && (
+        <View style={styles.grid2}>
+          {zones.map(zone => (
+            <TvZoneColumn
+              key={zone.code}
+              zone={zone}
+              localId={localId}
+            />
+          ))}
+        </View>
+      )}
+    </View>
   );
+
 }
 
 const styles = StyleSheet.create({
-  bg: { width, height },
-  overlay: {
+  root: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.20)",
-    padding: 14,
+    backgroundColor: "#000", // solo fallback
   },
 
-  topHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
-    marginBottom: 10,
-  },
-  mainLogo: { height: 70, width: 220 },
-  localText: { color: "#fff", fontWeight: "900", fontSize: 18 },
-
-  zonesGrid: {
+  grid4: {
     flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
   },
 
-  zonesGridTwo: {
-    flexWrap: "nowrap",
-  },
-
-  // 4 zonas => 2x2
-  zoneCellFour: {
-    width: "49%",
-    height: "49%",
-  },
-
-  // 2 zonas => 1x2
-  zoneCellTwo: {
-    width: "49%",
-    height: "100%",
-  },
-
-  error: {
+  grid2: {
     flex: 1,
-    backgroundColor: "#001f3f",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
+    flexDirection: "row",
   },
-  errorText: { color: "white", fontSize: 28, fontWeight: "900", textAlign: "center" },
-  errorSub: { color: "#ccc", fontSize: 16, marginTop: 10, textAlign: "center" },
 });
+
 
 
 
