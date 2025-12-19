@@ -212,12 +212,12 @@ function TvCard({ session, remaining, now, formatTime }) {
     <Animated.View
         style={[
         styles.card,
-        remaining <= session.duration / 2 && styles.cardHalf,
+        remaining <= totalSeconds / 2 && styles.cardHalf,
         remaining === 0 && styles.cardFinished,
         { opacity: blinkAnim },
         ]}
     >
-        <Text style={styles.name}>{session.child_name}</Text>
+        <Text style={styles.name}>{session.kid_name}</Text>
 
         {remaining > 0 ? (
         <Text style={styles.time}>{formatTime(remaining)}</Text>
@@ -245,20 +245,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    justifyContent: "center",
     marginBottom: 10,
   },
 
   logo: {
+    position: "absolute",
     width: 110,
     height: 36,
     resizeMode: "contain",
-    marginRight: 12,
+    left: 10,
   },
   
   zoneTitle: {
     fontSize: 26,
     fontWeight: "bold",
     color: "#fff",
+    textAlign: "center",
   },
 
   grid: {
