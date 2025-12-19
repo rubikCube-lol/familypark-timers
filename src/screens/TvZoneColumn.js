@@ -233,7 +233,6 @@ function TvCard({ session, remaining, now, formatTime }) {
 const styles = StyleSheet.create({
   column: {
     flex: 1,
-    borderRadius: 18,
     overflow: "hidden",
     padding: 10,
   },
