@@ -270,17 +270,6 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
 
-  zoneWrapper: {
-    flex: 1,
-    width: "50%",
-    height: "50%", // SOLO se usa cuando son 4 zonas
-  },
-
-  zoneBg: {
-    flex: 1,
-    padding: 16,
-  },
-
   zoneHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -292,10 +281,6 @@ const styles = StyleSheet.create({
   },
 
   // Cards responsive dentro de la columna
-
-  cardsContainer: {
-    paddingBottom: 40,
-  },
 
   card: {
     width: "48%",

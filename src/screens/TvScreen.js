@@ -100,22 +100,24 @@ export default function TvScreen() {
       {zones.length === 4 && (
         <View style={styles.grid4}>
           {zones.map(zoneCode => (
-            <TvZoneColumn
-              key={zoneCode}
-              zoneCode={zoneCode}
-              localId={localId}
-            />
+            <View key={zoneCode} style={styles.cell4}>
+              <TvZoneColumn
+                zoneCode={zoneCode}
+                localId={localId}
+              />
+            </View>
           ))}
         </View>
       )}
 
       {zones.length === 2 && (
         <View style={styles.grid2}>
-          {zones.map(zone => (
+          {zones.map(zoneCode => (
             <TvZoneColumn
-              key={zone.code}
-              zone={zone}
+              key={zoneCode}
+              zoneCode={zoneCode}
               localId={localId}
+              style={{ flex: 1 }}
             />
           ))}
         </View>
@@ -128,7 +130,6 @@ export default function TvScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000", // solo fallback
   },
 
   grid4: {
@@ -140,6 +141,11 @@ const styles = StyleSheet.create({
   grid2: {
     flex: 1,
     flexDirection: "row",
+  },
+
+  cell4: {
+    width: "50%",
+    height: "50%",
   },
 });
 
