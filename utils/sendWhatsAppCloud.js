@@ -3,7 +3,7 @@
 // ==================================================
 //  CONFIG GENERAL – EDITA SOLO EL TOKEN TEMPORAL
 // ==================================================
-const ACCESS_TOKEN = "EAALoR1mkYdABQIqUea8ZCUCyyutCUC2aYIl7FLjA3L417QPLpVAfOCgg0pO5CXHHV4gQunL0KS63mZBDH2IrA8JEBabv0AFyZAy3HoqmD0iS8QqNJgDBlBTO4GlAUx50oMv4ejS8Uygu9bgF8Sqk6shnkRUKg1GsZBeDrZA7l6EdZBJBoT7IHnYcYlTL7YPTaz8dfJnx1SY5oZAmvvQYZCB3tsrZAOWZANfNZBoVC7A0w1e9TGEK9VR6ZBUr616m7Bb8LxGUza0ZBMsUd1pwSWOX4ukP0F5kkjkMZD"; // <-- recuerda actualizarlo manualmente
+const ACCESS_TOKEN = "EAALoR1mkYdABQHEE7a9hb6oi810es34siLDqJ3o41C4e5UkshlStVbEZCYWL5ZACIPjZCGGPgiow2HmqhYD3INJTGLyoER3DQF1vaQTqja9MUH7w8r9X32dWUa8gKDKGTFs2uSrnDC1ROBYJ1NUIa125yrhzUoHgyL9qsYKjrZAHgCzhVDbLQYuL7Jb8DlNjqJAjMUHdO7eVDVGDEY7P5Nv4HjAqpWcD177ksFWupsNCkWzlxkL3XZAi4essPRRq8DArQgvK471E2GusPFqmzUnfQ"; // <-- recuerda actualizarlo manualmente
 const PHONE_NUMBER_ID = "908757792318547"; // siempre el mismo
 const API_URL = `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`;
 
